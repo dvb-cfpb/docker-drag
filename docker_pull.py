@@ -8,7 +8,22 @@ import shutil
 import requests
 import tarfile
 import urllib3
+import subprocess
+
 urllib3.disable_warnings()
+
+def get_wrapper(url, params=None, **kwargs):
+  #print(">> ",url,params,kwargs)
+  return requests.get(url,params,**kwargs)
+
+def save_url(fname,url, params=None, **kwargs):
+  headers = kwargs.get("headers",{})
+  cmd = ['wget','--verbose','--continue','-O',fname]
+  for h,v in headers.items():
+    cmd.append('--header="{}: {}"'.format(h,v))
+  cmd.append(url)
+  #print(" ".join(cmd))
+  subprocess.run(" ".join(cmd),shell=True, check=True)
 
 if len(sys.argv) != 2 :
 	print('Usage:\n\tdocker_pull.py [registry/][repository/]image[:tag|@digest]\n')
@@ -141,6 +156,8 @@ for layer in layers:
 	unit = int(bresp.headers['Content-Length']) / 50
 	acc = 0
 	nb_traits = 0
+	save_url(layerdir+'/layer_gzip.tar',bresp.request.url,headers=bresp.request.headers)
+	foo="""
 	progress_bar(ublob, nb_traits)
 	with open(layerdir + '/layer_gzip.tar', "wb") as file:
 		for chunk in bresp.iter_content(chunk_size=8192): 
@@ -151,6 +168,7 @@ for layer in layers:
 					nb_traits = nb_traits + 1
 					progress_bar(ublob, nb_traits)
 					acc = 0
+	"""
 	sys.stdout.write("\r{}: Extracting...{}".format(ublob[7:19], " "*50)) # Ugly but works everywhere
 	sys.stdout.flush()
 	with open(layerdir + '/layer.tar', "wb") as file: # Decompress gzip response
